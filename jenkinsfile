@@ -1,0 +1,59 @@
+pipeline {
+  agent any
+
+  environment {
+    IMAGE_NAME = 'afekeng/flask-app'
+  }
+
+  stages {
+    stage('Clone') {
+      steps {
+        git url: 'git@github.com:Afekeng/Final-Project-Jenkins-CI-CD-Pipeline-for-a-Web-App.git',
+            credentialsId: 'Afekeng'
+      }
+    }
+
+    stage('Test') {
+      steps {
+        echo 'running test/s'
+      }
+    }
+
+    stage('Build Docker') {
+      steps {
+        sh 'docker build -t $IMAGE_NAME:$BUILD_NUMBER .'
+      }
+    }
+
+    stage('Push to Docker Hub') {
+      steps {
+        withCredentials([
+          usernamePassword(
+            credentialsId: 'dockerhub-creds',
+            usernameVariable: 'USER',
+            passwordVariable: 'PASS'
+          )
+        ]) {
+          sh '''
+            docker login -u "$USER" -p "$PASS"
+            docker tag $IMAGE_NAME:$BUILD_NUMBER $IMAGE_NAME:latest
+            docker push $IMAGE_NAME:$BUILD_NUMBER
+            docker push $IMAGE_NAME:latest
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    success {
+      echo 'Build succeeded.'
+    }
+    failure {
+      echo 'Build failed.'
+    }
+    always {
+      echo 'Pipeline done.'
+    }
+  }
+}
