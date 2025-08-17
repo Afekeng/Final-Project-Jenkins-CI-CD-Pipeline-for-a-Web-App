@@ -1,0 +1,82 @@
+pipeline {
+  agent any
+
+  environment {
+    IMAGE_NAME = 'afekeng/flask-app'
+  }
+
+  stages {
+    stage('Clone') {
+      steps {
+        git branch: 'main',   
+            url: 'git@github.com:Afekeng/Final-Project-Jenkins-CI-CD-Pipeline-for-a-Web-App.git',
+            credentialsId: 'Afekeng'
+      }
+    }
+
+    stage('Test') {
+      steps {
+        echo 'running test/s'
+      }
+    }
+
+    stage('Build Docker') {
+      steps {
+        sh 'docker build -t $IMAGE_NAME:$BUILD_NUMBER .'
+      }
+    }
+
+    stage('Push to Docker Hub') {
+      steps {
+        withCredentials([
+          usernamePassword(
+            credentialsId: 'docker-jenkins-credentials',
+            usernameVariable: 'USER',
+            passwordVariable: 'PASS'
+          )
+        ]) {
+          sh '''
+            docker login -u "$USER" -p "$PASS"
+            docker tag $IMAGE_NAME:$BUILD_NUMBER $IMAGE_NAME:latest
+            docker push $IMAGE_NAME:$BUILD_NUMBER
+            docker push $IMAGE_NAME:latest
+            '''
+        }
+      }
+    }
+    stage('Get Docker Image Created Date') {
+      steps {
+        sh "docker inspect -f '{{.Created}}' $IMAGE_NAME:$BUILD_NUMBER || echo'image not found'"
+      }
+    }
+    stage('Cleanup Images') {
+      steps {
+        sh '''
+          docker rmi $IMAGE_NAME:$BUILD_NUMBER || true
+          docker rmi $IMAGE_NAME:latest || true
+          '''
+      }
+    }  
+  }
+
+  post {
+    success {
+        slackSend(channel: '#flask_app', message: "Build #${env.BUILD_NUMBER} SUCCESS")
+    }
+    failure {
+        slackSend(channel: '#flask_app', message: "Build #${env.BUILD_NUMBER} FAILURE")
+    }
+    aborted {
+        slackSend(channel: '#flask_app', message: "Build #${env.BUILD_NUMBER} ABORTED")
+    }
+    always {
+        echo 'Cleaning up Docker system'
+        node {
+            sh '''
+                docker container prune -f || true
+                docker image prune -af --filter "until=168h" || true
+            '''
+        }
+        echo 'Pipeline done.'
+    }
+}
