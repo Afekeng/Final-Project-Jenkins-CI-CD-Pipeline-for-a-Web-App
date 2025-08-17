@@ -210,3 +210,5 @@ Finished: SUCCESS
 
 - **Git SSH Access Denied**: Solved by creating an SSH key and adding it to both GitHub and Jenkins credentials.
 - **Docker login failed in Jenkins**: Solved by creating a Docker Hub username/password credential in Jenkins and using it inside `withCredentials`.
+
+
